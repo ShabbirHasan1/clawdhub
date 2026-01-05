@@ -192,6 +192,15 @@ export const SkillInstallSpecSchema = type({
     package: 'string?',
     module: 'string?',
 });
+export const NixPluginSpecSchema = type({
+    plugin: 'string',
+    systems: 'string[]?',
+});
+export const ClawdbotConfigSpecSchema = type({
+    requiredEnv: 'string[]?',
+    stateDirs: 'string[]?',
+    example: 'string?',
+});
 export const ClawdisRequiresSchema = type({
     bins: 'string[]?',
     anyBins: 'string[]?',
@@ -205,7 +214,10 @@ export const ClawdisSkillMetadataSchema = type({
     emoji: 'string?',
     homepage: 'string?',
     os: 'string[]?',
+    cliHelp: 'string?',
     requires: ClawdisRequiresSchema.optional(),
     install: SkillInstallSpecSchema.array().optional(),
+    nix: NixPluginSpecSchema.optional(),
+    config: ClawdbotConfigSpecSchema.optional(),
 });
 //# sourceMappingURL=schemas.js.map

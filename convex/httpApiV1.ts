@@ -76,7 +76,7 @@ type ListVersionsResult = {
   nextCursor: string | null
 }
 
-export const searchSkillsV1Http = httpAction(async (ctx, request) => {
+export async function searchSkillsV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -107,9 +107,11 @@ export const searchSkillsV1Http = httpAction(async (ctx, request) => {
     200,
     rate.headers,
   )
-})
+}
 
-export const resolveSkillVersionV1Http = httpAction(async (ctx, request) => {
+export const searchSkillsV1Http = httpAction(searchSkillsV1Handler)
+
+export async function resolveSkillVersionV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -127,9 +129,11 @@ export const resolveSkillVersionV1Http = httpAction(async (ctx, request) => {
     200,
     rate.headers,
   )
-})
+}
 
-export const listSkillsV1Http = httpAction(async (ctx, request) => {
+export const resolveSkillVersionV1Http = httpAction(resolveSkillVersionV1Handler)
+
+export async function listSkillsV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -165,9 +169,11 @@ export const listSkillsV1Http = httpAction(async (ctx, request) => {
   )
 
   return json({ items, nextCursor: result.nextCursor ?? null }, 200, rate.headers)
-})
+}
 
-export const skillsGetRouterV1Http = httpAction(async (ctx, request) => {
+export const listSkillsV1Http = httpAction(listSkillsV1Handler)
+
+export async function skillsGetRouterV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -323,9 +329,11 @@ export const skillsGetRouterV1Http = httpAction(async (ctx, request) => {
   }
 
   return text('Not found', 404, rate.headers)
-})
+}
 
-export const publishSkillV1Http = httpAction(async (ctx, request) => {
+export const skillsGetRouterV1Http = httpAction(skillsGetRouterV1Handler)
+
+export async function publishSkillV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'write')
   if (!rate.ok) return rate.response
 
@@ -356,9 +364,11 @@ export const publishSkillV1Http = httpAction(async (ctx, request) => {
   }
 
   return text('Unsupported content type', 415, rate.headers)
-})
+}
 
-export const skillsPostRouterV1Http = httpAction(async (ctx, request) => {
+export const publishSkillV1Http = httpAction(publishSkillV1Handler)
+
+export async function skillsPostRouterV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'write')
   if (!rate.ok) return rate.response
 
@@ -378,9 +388,11 @@ export const skillsPostRouterV1Http = httpAction(async (ctx, request) => {
   } catch {
     return text('Unauthorized', 401, rate.headers)
   }
-})
+}
 
-export const skillsDeleteRouterV1Http = httpAction(async (ctx, request) => {
+export const skillsPostRouterV1Http = httpAction(skillsPostRouterV1Handler)
+
+export async function skillsDeleteRouterV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'write')
   if (!rate.ok) return rate.response
 
@@ -398,9 +410,11 @@ export const skillsDeleteRouterV1Http = httpAction(async (ctx, request) => {
   } catch {
     return text('Unauthorized', 401, rate.headers)
   }
-})
+}
 
-export const whoamiV1Http = httpAction(async (ctx, request) => {
+export const skillsDeleteRouterV1Http = httpAction(skillsDeleteRouterV1Handler)
+
+export async function whoamiV1Handler(ctx: ActionCtx, request: Request) {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -420,7 +434,20 @@ export const whoamiV1Http = httpAction(async (ctx, request) => {
   } catch {
     return text('Unauthorized', 401, rate.headers)
   }
-})
+}
+
+export const whoamiV1Http = httpAction(whoamiV1Handler)
+
+export const __handlers = {
+  searchSkillsV1Handler,
+  resolveSkillVersionV1Handler,
+  listSkillsV1Handler,
+  skillsGetRouterV1Handler,
+  publishSkillV1Handler,
+  skillsPostRouterV1Handler,
+  skillsDeleteRouterV1Handler,
+  whoamiV1Handler,
+}
 
 async function parseMultipartPublish(
   ctx: ActionCtx,
@@ -471,13 +498,14 @@ async function parseMultipartPublish(
     files.push({ path, size, storageId, sha256, contentType })
   }
 
+  const forkOf = payload.forkOf && typeof payload.forkOf === 'object' ? payload.forkOf : undefined
   const body = {
     slug: payload.slug,
     displayName: payload.displayName,
     version: payload.version,
     changelog: typeof payload.changelog === 'string' ? payload.changelog : '',
     tags: Array.isArray(payload.tags) ? payload.tags : undefined,
-    forkOf: payload.forkOf,
+    ...(forkOf ? { forkOf } : {}),
     files,
   }
 
