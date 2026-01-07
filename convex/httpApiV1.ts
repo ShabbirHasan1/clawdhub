@@ -76,7 +76,7 @@ type ListVersionsResult = {
   nextCursor: string | null
 }
 
-async function searchSkillsV1Handler(ctx: ActionCtx, request: Request) {
+export const searchSkillsV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -107,11 +107,9 @@ async function searchSkillsV1Handler(ctx: ActionCtx, request: Request) {
     200,
     rate.headers,
   )
-}
+})
 
-export const searchSkillsV1Http = httpAction(searchSkillsV1Handler)
-
-async function resolveSkillVersionV1Handler(ctx: ActionCtx, request: Request) {
+export const resolveSkillVersionV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -129,11 +127,9 @@ async function resolveSkillVersionV1Handler(ctx: ActionCtx, request: Request) {
     200,
     rate.headers,
   )
-}
+})
 
-export const resolveSkillVersionV1Http = httpAction(resolveSkillVersionV1Handler)
-
-async function listSkillsV1Handler(ctx: ActionCtx, request: Request) {
+export const listSkillsV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -169,11 +165,9 @@ async function listSkillsV1Handler(ctx: ActionCtx, request: Request) {
   )
 
   return json({ items, nextCursor: result.nextCursor ?? null }, 200, rate.headers)
-}
+})
 
-export const listSkillsV1Http = httpAction(listSkillsV1Handler)
-
-async function skillsGetRouterV1Handler(ctx: ActionCtx, request: Request) {
+export const skillsGetRouterV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -329,11 +323,9 @@ async function skillsGetRouterV1Handler(ctx: ActionCtx, request: Request) {
   }
 
   return text('Not found', 404, rate.headers)
-}
+})
 
-export const skillsGetRouterV1Http = httpAction(skillsGetRouterV1Handler)
-
-async function publishSkillV1Handler(ctx: ActionCtx, request: Request) {
+export const publishSkillV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'write')
   if (!rate.ok) return rate.response
 
@@ -364,29 +356,9 @@ async function publishSkillV1Handler(ctx: ActionCtx, request: Request) {
   }
 
   return text('Unsupported content type', 415, rate.headers)
-}
+})
 
-export const publishSkillV1Http = httpAction(publishSkillV1Handler)
-
-type FileLike = {
-  name: string
-  size: number
-  type: string
-  arrayBuffer: () => Promise<ArrayBuffer>
-}
-
-type FileLikeEntry = FormDataEntryValue & FileLike
-
-function toFileLike(entry: FormDataEntryValue): FileLikeEntry | null {
-  if (typeof entry === 'string') return null
-  const candidate = entry as Partial<FileLike>
-  if (typeof candidate.name !== 'string') return null
-  if (typeof candidate.size !== 'number') return null
-  if (typeof candidate.arrayBuffer !== 'function') return null
-  return entry as FileLikeEntry
-}
-
-async function skillsPostRouterV1Handler(ctx: ActionCtx, request: Request) {
+export const skillsPostRouterV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'write')
   if (!rate.ok) return rate.response
 
@@ -406,11 +378,9 @@ async function skillsPostRouterV1Handler(ctx: ActionCtx, request: Request) {
   } catch {
     return text('Unauthorized', 401, rate.headers)
   }
-}
+})
 
-export const skillsPostRouterV1Http = httpAction(skillsPostRouterV1Handler)
-
-async function skillsDeleteRouterV1Handler(ctx: ActionCtx, request: Request) {
+export const skillsDeleteRouterV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'write')
   if (!rate.ok) return rate.response
 
@@ -428,11 +398,9 @@ async function skillsDeleteRouterV1Handler(ctx: ActionCtx, request: Request) {
   } catch {
     return text('Unauthorized', 401, rate.headers)
   }
-}
+})
 
-export const skillsDeleteRouterV1Http = httpAction(skillsDeleteRouterV1Handler)
-
-async function whoamiV1Handler(ctx: ActionCtx, request: Request) {
+export const whoamiV1Http = httpAction(async (ctx, request) => {
   const rate = await applyRateLimit(ctx, request, 'read')
   if (!rate.ok) return rate.response
 
@@ -452,9 +420,7 @@ async function whoamiV1Handler(ctx: ActionCtx, request: Request) {
   } catch {
     return text('Unauthorized', 401, rate.headers)
   }
-}
-
-export const whoamiV1Http = httpAction(whoamiV1Handler)
+})
 
 async function parseMultipartPublish(
   ctx: ActionCtx,
@@ -495,14 +461,13 @@ async function parseMultipartPublish(
   }> = []
 
   for (const entry of form.getAll('files')) {
-    const file = toFileLike(entry)
-    if (!file) continue
-    const path = file.name
-    const size = file.size
-    const contentType = file.type || undefined
-    const buffer = new Uint8Array(await file.arrayBuffer())
+    if (!(entry instanceof File)) continue
+    const path = entry.name
+    const size = entry.size
+    const contentType = entry.type || undefined
+    const buffer = new Uint8Array(await entry.arrayBuffer())
     const sha256 = await sha256Hex(buffer)
-    const storageId = await ctx.storage.store(file as Blob)
+    const storageId = await ctx.storage.store(entry)
     files.push({ path, size, storageId, sha256, contentType })
   }
 
@@ -512,8 +477,8 @@ async function parseMultipartPublish(
     version: payload.version,
     changelog: typeof payload.changelog === 'string' ? payload.changelog : '',
     tags: Array.isArray(payload.tags) ? payload.tags : undefined,
+    forkOf: payload.forkOf,
     files,
-    ...(payload.forkOf === undefined ? {} : { forkOf: payload.forkOf }),
   }
 
   return parsePublishBody(body)
@@ -685,8 +650,8 @@ function toOptionalNumber(value: string | null) {
 }
 
 async function sha256Hex(bytes: Uint8Array) {
-  const normalized = new Uint8Array(bytes)
-  const digest = await crypto.subtle.digest('SHA-256', normalized.buffer)
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  const digest = await crypto.subtle.digest('SHA-256', buffer)
   return toHex(new Uint8Array(digest))
 }
 
@@ -694,15 +659,4 @@ function toHex(bytes: Uint8Array) {
   let out = ''
   for (const byte of bytes) out += byte.toString(16).padStart(2, '0')
   return out
-}
-
-export const __handlers = {
-  searchSkillsV1Handler,
-  resolveSkillVersionV1Handler,
-  listSkillsV1Handler,
-  skillsGetRouterV1Handler,
-  publishSkillV1Handler,
-  skillsPostRouterV1Handler,
-  skillsDeleteRouterV1Handler,
-  whoamiV1Handler,
 }

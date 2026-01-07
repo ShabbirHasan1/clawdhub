@@ -3,7 +3,6 @@ type SkillMetaSource = {
   owner?: string | null
   displayName?: string | null
   summary?: string | null
-  version?: string | null
 }
 
 type SkillMeta = {
@@ -16,7 +15,6 @@ type SkillMeta = {
 
 const DEFAULT_SITE = 'https://clawdhub.com'
 const DEFAULT_DESCRIPTION = 'ClawdHub — a fast skill registry for agents, with vector search.'
-const OG_SKILL_IMAGE_LAYOUT_VERSION = '4'
 
 export function getSiteUrl() {
   return import.meta.env.VITE_SITE_URL ?? DEFAULT_SITE
@@ -35,13 +33,11 @@ export async function fetchSkillMeta(slug: string) {
     const payload = (await response.json()) as {
       skill?: { displayName?: string; summary?: string | null } | null
       owner?: { handle?: string | null } | null
-      latestVersion?: { version?: string | null } | null
     }
     return {
       displayName: payload.skill?.displayName ?? null,
       summary: payload.skill?.summary ?? null,
       owner: payload.owner?.handle ?? null,
-      version: payload.latestVersion?.version ?? null,
     }
   } catch {
     return null
@@ -53,20 +49,14 @@ export function buildSkillMeta(source: SkillMetaSource): SkillMeta {
   const owner = clean(source.owner)
   const displayName = clean(source.displayName) || clean(source.slug)
   const summary = clean(source.summary)
-  const version = clean(source.version)
   const title = `${displayName} — ClawdHub`
   const description =
     summary || (owner ? `Agent skill by @${owner} on ClawdHub.` : DEFAULT_DESCRIPTION)
   const url = owner ? `${siteUrl}/${owner}/${source.slug}` : `${siteUrl}/skills/${source.slug}`
-  const imageParams = new URLSearchParams()
-  imageParams.set('v', OG_SKILL_IMAGE_LAYOUT_VERSION)
-  imageParams.set('slug', source.slug)
-  if (owner) imageParams.set('owner', owner)
-  if (version) imageParams.set('version', version)
   return {
     title,
     description: truncate(description, 200),
-    image: `${siteUrl}/og/skill.png?${imageParams.toString()}`,
+    image: `${siteUrl}/og.png`,
     url,
     owner: owner || null,
   }
